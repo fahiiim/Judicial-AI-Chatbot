@@ -91,6 +91,11 @@ def chat_cli(args):
                 for doc in result["retrieved_documents"]:
                     print(f"  • {doc.get('source', 'Unknown')} (relevance: {doc.get('relevance_score', 0):.2f})")
             
+            # Display detailed legal analysis
+            if result.get("analysis"):
+                print("\n")
+                print(result["analysis"])
+            
             # Log interaction
             pipeline.log_interaction(query, result.get("answer", ""), session_id)
         
@@ -100,49 +105,6 @@ def chat_cli(args):
         except Exception as e:
             logger.error(f"Error in chat: {e}")
             print(f"Error: {e}")
-
-
-def start_api(args):
-    """Start the FastAPI server"""
-    import uvicorn
-    from config.settings import settings
-    from src.pipeline import RAGPipeline
-    
-    logger.info("Starting API server...")
-    
-    # Pre-initialize pipeline
-    try:
-        print("Initializing RAG pipeline...")
-        pipeline = RAGPipeline(pdf_path=args.pdf)
-        
-        # Build index if needed
-        if pipeline.get_indexed_count() == 0:
-            logger.warning("No indexed documents found. Building index...")
-            print("Building index... (this may take a few minutes)")
-            pipeline.build_index()
-        
-        indexed_count = pipeline.get_indexed_count()
-        print(f"✓ Pipeline ready with {indexed_count} indexed documents\n")
-    
-    except Exception as e:
-        logger.error(f"Failed to initialize pipeline: {e}")
-        print(f"Error initializing pipeline: {e}")
-        sys.exit(1)
-    
-    # Start server
-    print("="*70)
-    print("Legal Document RAG Chatbot - API Server")
-    print("="*70)
-    print(f"Starting server at http://{settings.API_HOST}:{settings.API_PORT}")
-    print(f"API Documentation: http://{settings.API_HOST}:{settings.API_PORT}/docs")
-    print("="*70 + "\n")
-    
-    uvicorn.run(
-        "src.api:app",
-        host=settings.API_HOST,
-        port=settings.API_PORT,
-        reload=settings.API_RELOAD and args.reload
-    )
 
 
 def main():
@@ -158,9 +120,6 @@ Examples:
   Interactive chat:
     python main.py chat
 
-  Start API server:
-    python main.py api
-
   With specific PDF:
     python main.py --pdf /path/to/document.pdf chat
         """
@@ -170,7 +129,7 @@ Examples:
         "command",
         nargs="?",
         default="chat",
-        choices=["build", "chat", "api"],
+        choices=["build", "chat"],
         help="Command to execute"
     )
     
@@ -189,13 +148,7 @@ Examples:
     parser.add_argument(
         "--show-sources",
         action="store_true",
-        help="Show source documents in chat (CLI only)"
-    )
-    
-    parser.add_argument(
-        "--reload",
-        action="store_true",
-        help="Enable reload mode for API development"
+        help="Show source documents in chat"
     )
     
     args = parser.parse_args()
@@ -205,8 +158,6 @@ Examples:
             build_index(args)
         elif args.command == "chat":
             chat_cli(args)
-        elif args.command == "api":
-            start_api(args)
     except KeyboardInterrupt:
         logger.info("Application interrupted by user")
         print("\nInterrupted")

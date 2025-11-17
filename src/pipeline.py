@@ -15,7 +15,7 @@ from src.ingestion import PDFParser, TextCleaner
 from src.chunking import SemanticChunker, MetadataExtractor
 from src.embeddings import EmbeddingGenerator, VectorStore
 from src.retrieval import QueryProcessor, HybridRetriever
-from src.generation import RAGGenerator, CitationHandler
+from src.generation import RAGGenerator, CitationHandler, AnalysisGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ class RAGPipeline:
         self.query_processor = QueryProcessor()
         self.retriever = HybridRetriever(self.embedding_gen, self.vector_store)
         self.generator = RAGGenerator()
+        self.analysis_generator = AnalysisGenerator()
         
         # Initialize database for chat history and feedback
         self._init_database()
@@ -195,6 +196,11 @@ class RAGPipeline:
             logger.info("Processing citations...")
             citations = CitationHandler.extract_citations(result.get("answer", ""))
             result["citations"] = citations
+            
+            # Step 5: Generate detailed legal analysis
+            logger.info("Generating detailed legal analysis...")
+            analysis = self.analysis_generator.generate_analysis(query, retrieved_doc_list)
+            result["analysis"] = analysis
             
             # Add retrieved documents if requested
             if include_retrieved_docs:
